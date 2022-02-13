@@ -1,0 +1,1346 @@
+#Ashley Bolton 2021 copyright
+#Skeleton Copy
+import random
+import time
+import shelve
+import os
+from os.path import exists
+from pathlib import Path
+
+Inventory = []
+Level = 0
+XP = 0
+C = 0
+Knowledge = []
+PreviousSave = 0
+FileName = ''
+
+
+def Auto_Save(Name, Health):
+  global C
+  global Level
+  global Knowledge
+  global CurrentArea
+
+  User = Player()
+  Inventory = User.GetInventory()
+
+  SaveFile = shelve.open('SaveFile', writeback = True)
+  SaveFile["CurrentArea"] = CurrentArea
+  SaveFile["Health"] = Health
+  SaveFile["Credits"] = C
+  SaveFile["Knowledge"] = Knowledge
+  SaveFile["Level"] = Level
+  SaveFile["Inventory"] = Inventory
+  SaveFile["Name"] = Name
+  SaveFile.close()
+
+
+def SaveGame(Name, Health):
+  global C
+  global Level
+  global Knowledge
+  global CurrentArea
+  global PreviousSave
+  global FileName
+
+  User = Player()
+  Inventory = User.GetInventory()
+  if PreviousSave == 0:
+    print("What do you want to name your save? ")
+    choice = input(">_ ")
+    if choice.isalpha():
+      FileName = choice
+      SaveFile = shelve.open(choice, writeback = True)
+      SaveFile["CurrentArea"] = CurrentArea
+      SaveFile["Health"] = Health
+      SaveFile["Credits"] = C
+      SaveFile["Knowledge"] = Knowledge
+      SaveFile["Level"] = Level
+      SaveFile["Inventory"] = Inventory
+      SaveFile["Name"] = Name
+      SaveFile["PreviousSave"] = PreviousSave
+      SaveFile["FileName"] = FileName
+      SaveFile.close()
+    else:
+      print("SaveFile can only contain letters A-Z ")
+      Game_Frame(Health, Name)
+  else:
+    SaveFile = shelve.open(FileName, writeback = True)
+    SaveFile["CurrentArea"] = CurrentArea
+    SaveFile["Health"] = Health
+    SaveFile["Credits"] = C
+    SaveFile["Knowledge"] = Knowledge
+    SaveFile["Level"] = Level
+    SaveFile["Inventory"] = Inventory
+    SaveFile["Name"] = Name
+    SaveFile["PreviousSave"] = PreviousSave
+    SaveFile.close()
+  Menu_Junction(Name, Health)
+
+def LoadGame(Name, Health):
+  global C
+  global Level
+  global Knowledge
+  global CurrentArea
+  global PreviousSave
+  global FileName
+  print("Enter the name of your save")
+  choice = input(">_ ")
+  Does_Exist = exists(FileName)
+  print("Exist state:", Does_Exist)
+  if Does_Exist == False:
+    User = Player()
+    Inventory = User.GetInventory()
+    with shelve.open(choice) as SaveFile:
+      Health = SaveFile["Health"]
+      C = SaveFile["Credits"]
+      Level = SaveFile["Level"]
+      Inventory = SaveFile["Inventory"]
+      Knowledge = SaveFile["Knowledge"]
+      CurrentArea = SaveFile["CurrentArea"]
+      Name = SaveFile["Name"]
+    SaveFile.close()
+    
+    print("\n\x1B[3mGame loaded successfully\n\x1B[0m")
+    PreviousSave += 1
+    print("Welcome back", Name)
+    print("You are at:", CurrentArea)
+    
+    Game_Frame(Health, Name)
+  else:
+    print("Game file does not exist")
+
+
+
+Max_Inventory_Size = 5
+
+Area_Count = 0
+Area = {
+    "Bedroom": {
+        "west": "Hallway",
+        "south": "Bathroom"
+    },
+    "Hallway": {
+        "east": "Bedroom",
+        "north": "Kitchen"
+    },
+    "Bathroom": {
+        "north": "Bedroom"
+    },
+    "Kitchen": {
+        "south": "Hallway",
+        "east": "Outside"
+    },
+    "Outside": {
+        "west": "Kitchen",
+        "east": "Road",
+        "south": "Trail"
+    },
+    "Road": {
+        "west": "Outside",
+        "east": "Hillside"
+    },
+    "Trail": {
+        "north": "Outside",
+        "east": "Blacksmith"
+    },
+    "Blacksmith": {
+        "west": "Trail"
+    },
+    "Hillside" : {
+      "west" : "Road",
+      "south": "Cliffs"
+    },
+    "Cliffs":{
+      "north":"Hillside",
+      "east" :"Path",
+      "west" :"Peak"
+    },
+    "Path":{
+      "west":"Cliffs"
+    },
+    "Peak" : {
+      "east":"Cliffs"
+    },
+}
+
+
+def Map(Health, Choice, Name):
+    try:
+        north = Area[CurrentArea]["north"]
+    except:
+        north = ""
+    try:
+        east = Area[CurrentArea]["east"]
+    except:
+        east = ""
+    try:
+        south = Area[CurrentArea]["south"]
+    except:
+        south = ""
+    try:
+        west = Area[CurrentArea]["west"]
+    except:
+        west = ""
+
+ 
+    Vert = "|"
+    Horiz = "---X---"
+    
+
+    print("")
+    print(north.center(30))
+    print(Vert.center(30))
+    print(west + Horiz.center(30 - len(west) * 2) + east)
+    print(Vert.center(30))
+    print(south.center(30))
+    print("")
+  
+
+
+CurrentArea = ""
+
+
+class Shop:
+    def __init__(self):
+        self.Currency = 0
+        self.ShopItems = []
+
+    def GetCurrency(self):
+        return self.Currency
+
+    def UpdateCurrency(self, n):
+        global C
+        C += n
+        print("You have gained", n, "credits!")
+
+    def Shop_Sell(Health, Name):
+        Sell_Items = [
+            "Feather", "String", "Stone", "Potion", "Gem", "Fabric", "Knife",
+            "Key", "Gold"
+        ]
+        Sell_Prices = [10, 14, 20, 25, 250, 50, 30, 500, 225]
+        User = Player()
+        Inventory = User.GetInventory()
+        global C
+        print("\x1B[3mYou open your phone to sell some items\x1B[0m")
+        print("I can buy:", Sell_Items)
+        print("\nYou have", Inventory)
+        Choice = input("\n>_ ").lower()
+
+        Item_To_Sell = Choice.capitalize()
+        if Item_To_Sell in Inventory and Item_To_Sell in Sell_Items:
+            Sell_Object = Inventory.index(Item_To_Sell)
+            Sell_Price = Sell_Items.index(Item_To_Sell)
+            Inventory.pop(Sell_Object)
+            print("\nYou have successfully sold", Item_To_Sell, "for",
+                  Sell_Prices[Sell_Price], "credits! ")
+            C += Sell_Prices[Sell_Price]
+            Shop.Shop_Sell(Health, Name)
+        else:
+            ErrorHandling(5, Name, Health)
+            print("\x1B[3mYou put your phone back in your pocket\n\x1B[0m")
+
+    def Shop_Buy(Health, Name, Items_For_Sale):
+        global C
+        Max_Inventory_Size = 6
+        Items_For_Sale = ["Sword", "Potion", "Dagger", "Backpack"]
+        Items_Cost = [50, 10, 5, 250]
+        User = Player()
+        if len(User.GetInventory()) < Max_Inventory_Size:
+            print("I am currently selling", Items_For_Sale)
+            print("What do you want to buy? ")
+            Choice = input("\n>_ ").lower()
+            while Choice != "nothing":
+                Item_Index = Items_For_Sale.index(Choice.capitalize())
+                if Choice.capitalize() in Items_For_Sale:
+                    print("A", Choice.capitalize(), "costs",
+                          Items_Cost[Item_Index])
+                    if C >= Items_Cost[Item_Index]:
+                        print("You have enough credits!")
+                        print("Do you wish to buy this? (Y/N) ")
+                        Confirm_Choice = input("\n>_ ").lower()
+                        if Confirm_Choice == "y" or Confirm_Choice == "yes":
+                            User.New_Inventory(Health, Name, Choice)
+                        if Confirm_Choice == "n" or Confirm_Choice == "no":
+                            Shop_Command(Health, Name)
+
+                else:
+                    print("You do not have enough credits!")
+        else:
+            print(
+                "\n\x1B[3mYou can't buy anything, your inventory is full!\x1B[0m"
+            )
+
+
+class Player:
+    global Inventory
+    global Level
+
+    def GetInventory(self):
+        return Inventory
+
+    def GetCredits(self,C):
+      return C
+
+    def New_Inventory(self, Health, Name, New_Item):
+        global Max_Inventory_Size
+        New = New_Item.capitalize()
+        print("You have acquired", New_Item)
+        if New == "Backpack":
+            Max_Inventory_Size += 5
+            print("You can now hold more items")
+            Game_Frame(Health, Name)
+        x = 0
+        OldInventory = []
+        OldInventory.append(New)
+        for ele in OldInventory:
+            if not OldInventory[x]:
+                OldInventory.pop(x)
+            else:
+                Inventory.append(OldInventory[x])
+                x += 1
+
+    def GetLevel(self):
+        return Level
+
+    def GetXP(self):
+        return XP
+
+    def Player_XP(self, Name, Xp_Gained):
+        XP_Requirement = 10
+        global Level
+        global XP
+        XP += Xp_Gained
+        XP_Requirement += Level * Level
+        print("You have gained", Xp_Gained, "xp")
+        if XP >= XP_Requirement:
+            Level += 1
+            print("\n~~~~~~~~~~~~~~~")
+            print("You have leveled up")
+            print("Your level:", Level)
+            print("Your overall xp", XP)
+            print("~~~~~~~~~~~~~~~\n")
+
+
+class Beast:
+    def __init__(self, H, S, BT, Health, Name):
+        self.Health = H
+        self.Strength = S
+        self.BeastTier = BT
+
+    def Beast_Health(self, H):
+        return self.Health
+
+    def Beast_Strength(self, S):
+        return self.Strength
+
+    def Beast_Tier(self, BT):
+        return self.BeastTier
+
+    def Player_Attack(self, Health, Name, H, S, BT):
+        Weapons = ["Sword", "Dagger"]
+        Chance = ["yes", "no"]
+        ShopKeep = Shop()
+        User = Player()
+        Inventory = User.GetInventory()
+        XP_Gained = 0
+        H_Min = 0
+        Weapons = ["Dagger", "Sword","Knife"]
+        Monster = Beast(H, S, BT, Health, Name)
+        Combat_Commands = ["stab", "punch", "kick", "heal", "flee", "nothing"]
+        print("It is your turn to attack. ")
+        print("you have", Inventory)
+        if Health <= 0:
+            print("You have been defeated")
+            Game_Over()
+        while H > 0 and Health > 0:
+
+            print("what will you do? ")
+            Combat_Choice = input("\n>_ ").lower()
+            Combat_Recogniser = Combat_Choice.split()[0]
+            if Weapons in Inventory:
+                if "stab" in Combat_Recogniser:
+                    print(User.GetInventory())
+                    print("\nWhat will you stab it with? ")
+                    Stab_Choice = input("\n>_").lower()
+                    if Stab_Choice.capitalize() in Weapons and Inventory:
+                        print(
+                            "\n\x1B[3myou plunge your weapon into the monster before retreating. \x1B[0m"
+                        )
+                        if Stab_Choice == "dagger":
+                            DamageDealt = random.randrange(5, 20)
+                        if Stab_Choice == "sword":
+                            DamageDealt = random.randrange(20, 50)
+                        H -= DamageDealt
+                        print("You have dealt", DamageDealt,
+                              "damage points to the beast")
+                        print("Beast health:", H)
+                        if H <= 0:
+                            print(
+                                "\n\x1B[3mYou have defeated the beast. \n\x1B[0m"
+                            )
+                            if BT == 1:
+                                XP_Gained += random.randrange(1, 5)
+                                User.Player_XP(Name, XP_Gained)
+                                ShopKeep.UpdateCurrency(random.randrange(
+                                    4, 17))
+
+                            if BT == 2:
+                                XP_Gained += random.randrange(5, 10)
+                                User.Player_XP(Name, XP_Gained)
+                                ShopKeep.UpdateCurrency(
+                                    random.randrange(15, 28))
+                            if BT == 3:
+                                XP_Gained += random.randrange(10, 20)
+                                User.Player_XP(Name, XP_Gained)
+                                ShopKeep.UpdateCurrency(
+                                    random.randrange(42, 83))
+
+                            Break_Chance = random.choice(Chance)
+                            if Break_Chance == "yes":
+                                if H <= 0:
+                                    Remove_Choice = Inventory.index(
+                                        Stab_Choice)
+                                    Inventory.pop(Remove_Choice)
+                                    print("Your weapon broke in battle. ")
+
+                            Game_Frame(Health, Name)
+                        Monster.Beast_Attack(H, S, BT, Health, Name)
+
+            if "punch" in Combat_Recogniser:
+                DamageDealt = random.randrange(1, 5)
+                print("\n\x1B[3mYou have punched the beast.\x1B[0m")
+                H -= DamageDealt
+                print("\x1B[3mYou have dealt", DamageDealt,
+                      "damage points to the beast\x1B[0m")
+                print("Beast health:", H)
+                if H <= 0:
+                    print("\n\x1B[3mYou have defeated the beast. \n\x1B[0m")
+                    if BT == 1:
+                        XP_Gained += random.randrange(1, 5)
+                        User.Player_XP(Name, XP_Gained)
+                    if BT == 2:
+                        XP_Gained += random.randrange(5, 10)
+                        User.Player_XP(Name, XP_Gained)
+                    if BT == 3:
+                        XP_Gained += random.randrange(10, 20)
+                        User.Player_XP(Name, XP_Gained)
+                    Game_Frame(Health, Name)
+
+            if "kick" in Combat_Recogniser:
+                DamageDealt = random.randrange(5, 8)
+                print("\n\x1B[3mYou have kicked the beast\x1B[0m")
+                H -= DamageDealt
+                print("\x1B[3mYou have dealt", DamageDealt,
+                      "damage points to the beast\x1B[0m")
+                print("Beast Health:", H)
+                print("You Health:", Health)
+                if H <= 0:
+                    print("\n\x1B[3mYou have defeated the beast. \n\x1B[0m")
+                    if BT == 1:
+                        XP_Gained += random.randrange(1, 5)
+                        User.Player_XP(Name, XP_Gained)
+                    if BT == 2:
+                        XP_Gained += random.randrange(5, 10)
+                        User.Player_XP(Name, XP_Gained)
+                    if BT == 3:
+                        XP_Gained += random.randrange(10, 20)
+                        User.Player_XP(Name, XP_Gained)
+                    Game_Frame(Health, Name)
+
+                Monster.Beast_Attack(H, S, BT, Health, Name)
+
+            if "flee" in Combat_Recogniser:
+                Escape_Chance = random.randrange(1, 2)
+                if Escape_Chance == 1:
+                    print("\nyou have fled the beast. ")
+                    Game_Frame(Health, Name)
+                if Escape_Chance == 2:
+                    print(
+                        "\nYou tried to run away but the beast blocks your path"
+                    )
+                    Monster.Beast_Attack(H, S, BT, Health, Name)
+
+            if Weapons not in Inventory:
+                print("\nYou have nothing to stab the beast with. ")
+
+    def Beast_Attack(self, H, S, BT, Health, Name):
+        Monster = Beast(H, S, BT, Health, Name)
+        Beast_Turn = ''
+        if BT == 1:
+            Beast_Turn = True
+
+            if H > 0 and Beast_Turn == True:
+                Attack_DMG = random.randrange(1, 10)
+                print("\n\x1B[3mThe beast has dealt", Attack_DMG,
+                      "Attack points. \x1B[0m \n")
+                Health -= Attack_DMG
+                print("Your Health", Health)
+                print("Beast Health", H)
+                Monster.Player_Attack(Health, Name, H, S, BT)
+        if BT == 2:
+            Beast_Turn = True
+
+            if H > 0 and Beast_Turn == True:
+                Attack_DMG = random.randrange(10, 20)
+                print("\n\x1B[3mThe beast has dealt", Attack_DMG,
+                      "Attack points. \x1B[0m \n")
+                Beast_Turn = False
+                Health -= Attack_DMG
+                print("Your Health", Health)
+                print("Beast Health", H)
+                Monster.Player_Attack(Health, Name, H, S, BT)
+        if BT == 3:
+            Beast_Turn = True
+
+            if H > 0 and Beast_Turn == True:
+                Attack_DMG = random.randrange(15, 25)
+                print("\n\x1B[3mThe beast has dealt", Attack_DMG,
+                      "Attack points. \x1B[0m \n")
+                Beast_Turn = False
+                Health -= Attack_DMG
+                print("Your Health", Health)
+                print("Beast Health", H)
+                Monster.Player_Attack(Health, Name, H, S, BT)
+
+    def Beast_Definition(self, H, S, BT, Health, Name):
+        Monster = Beast(H, S, BT, Health, Name)
+        BT = random.randrange(1, 3)
+        if BT == 1:
+            print("\n\x1B[3mThis particular beast is tier 1.\x1B[0m ")
+            H = 10
+        if BT == 2:
+            print("\n\x1B[3mThis particular beast is tier 2.\x1B[0m ")
+            H = 20
+            if BT == 3:
+                print("\n\x1B[3mThis particular beast is tier 3.\x1B[0m ")
+                H = 50
+        Monster.Beast_Attack(H, S, BT, Health, Name)
+########################################################################        
+class Beasty:
+  def __init__(self, H, S, Health, Name):
+    self.Health = H
+    self. Strength = S
+  def Beast_Descriptions(self,H,S,Health,Name):
+    global CurrentArea
+    global Knowledge
+    Beast_Types = ["Laden","Harrow"]
+    Mountain_Region = ["Hillside","Cliffs","Path","Peak"]
+    The_Laden = Laden_Beast
+    The_Harrow = Harrow_Beast
+    Chosen_Beast = random.choice(Beast_Types)
+    if Chosen_Beast == "Laden":
+      if "Laden" in Knowledge:
+        print("You see a Laden")
+      else:
+        print("You see a new type of beast")
+      The_Laden.Laden_Encounter(self,H,S,Health,Name)
+    if Chosen_Beast == "Harrow" and CurrentArea in Mountain_Region:
+      if "Harrow" in Knowledge:
+        print("You see a Harrow")
+      else:
+        print("You see a new type of beast")
+      The_Harrow.Harrow_Encounter(self,H,S,Health, Name)
+
+
+
+class Harrow_Beast(Beasty):
+  def __init__(self, H, S, Health, Name):
+        self.Health = H
+        self.Strength = S
+        
+  def Attacks(self, H, S, Health, Name):
+    global Knowledge
+    ShopKeep = Shop()
+    Xp_Gained = 0
+    User = Player()
+    Inventory = User.GetInventory()
+    Weapons = ["Sword","Knife","Dagger"]
+    Combat_Choices = ["stab","punch","kick","flee"]
+    Chance_Of_Success = ["HIT","MISS"]
+    Harrow_Abilities = ["Charge","Dash"]
+    Charge_Count = 0
+    while H > 0 and Health > 0:
+      if Health <= 0:
+        Acentia_End(Name)
+      print("Harrow Health: ", H)
+      print("You Health:", Health)
+      print("What will you do? ")
+      Combat_Input = input(">_ ")
+      if Combat_Input.lower() in Combat_Choices:
+          if Combat_Input.lower() == "stab":
+            print("What will you stab the Harrow with?")
+            Stab_Choice = input(">_")
+            if Stab_Choice.capitalize() in Weapons and Stab_Choice.capitalize() in Inventory:
+              if Stab_Choice.capitalize() == "Dagger":
+                Damage_Done = random.randrange(1,10)
+              if Stab_Choice.capitalize() == "Knife":
+                Damage_Done = random.randrange(5,20)
+              if Stab_Choice.capitalize() == "Sword":
+                Damage_Done = random.randrange(15,50)
+              print("You have dealt", Damage_Done,"damage to the Harrow")
+              H -= Damage_Done
+            else:
+              print("You can't attack with that.")
+          if Combat_Input.lower() == "kick":
+            Damage_Done = random.randrange(3,10)
+            H -= Damage_Done
+            print("You kick the Harrow as hard as humanly possible ")
+            print("Damage Dealt:", Damage_Done)
+          if Combat_Input.lower() == "punch":
+            Damage_Done = random.randrange(1,5)
+            H -= Damage_Done
+            print("You punch the Harrow with all your might. ")
+            print("Damage Dealt:", Damage_Done)
+          if Combat_Input.lower() == "flee":
+            Flee_Probability = random.choice(Chance_Of_Success)
+            if Flee_Probability == "HIT":
+              print("You have successfully fled the Harrow")
+              Game_Frame(Health, Name)
+            else:
+              print("You attempt to flee but the Harrow is too quick. ")
+          else:
+            print("Invalid Command. ")
+            Harrow_Beast.Attacks(self, H, S, Health, Name)
+        
+      if H > 0 and Health > 0:
+        
+        Hit_Probability = random.choice(Chance_Of_Success)
+        Ability_To_Use = random.choice(Harrow_Abilities)
+        if Hit_Probability == "HIT":
+          print("The Harrow has used it's", Ability_To_Use, "ability")
+          if Ability_To_Use == "Charge" and Charge_Count != 2:
+            print("Charging straight towards you, the Harrow knocks you to the floor")
+            Attack_Damage = random.randrange(1,5) * S
+            Health -= Attack_Damage
+            Charge_Count += 1
+          if Ability_To_Use == "Dash":
+            print("The Harrow flees the fight unexpectedly. ")
+            Game_Frame(Health, Name)
+        else:
+          print("The Harrow attempted to use it's", Ability_To_Use, "ability, but you're faster.") 
+      else:
+        print("The Laden has died")
+        Xp_Gained += random.randrange(1, 25)
+        Knowledge.append("Laden")
+        User.Player_XP(Name, Xp_Gained)
+        ShopKeep.UpdateCurrency(random.randrange(5, 60))
+  def Harrow_Encounter(self,H,S,Health,Name):
+    Harrow_Main = Harrow_Beast(H, S, Health, Name)
+    global Knowledge
+    if "Harrow" not in Knowledge:
+      print("The glow in the beast's 4 eyes mesmerise you. ")
+    else:
+      print("You've seen a Harrow before. This should be easy. ")
+    Harrow_Main.Attacks(25, 3, Health, Name)
+class Laden_Beast(Beasty):
+  def __init__(self, H, S, Health, Name):
+        self.Health = H
+        self.Strength = S
+        
+  def Attacks(self, H, S, Health, Name):
+    global Knowledge
+    ShopKeep = Shop()
+    Xp_Gained = 0
+    User = Player()
+    Inventory = User.GetInventory()
+    Weapons = ["Sword","Knife","Dagger"]
+    Combat_Choices = ["stab","punch","kick","flee"]
+    Chance_Of_Success = ["HIT","MISS"]
+    Laden_Abilities = ["Scratch","Claw","Heal"]
+    Heal_Ability_Use = 0
+    while H > 0 and Health > 0:
+      if Health <= 0:
+        Acentia_End(Name)
+      print("Laden Health: ", H)
+      print("You Health:", Health)
+      print("What will you do? ")
+      Combat_Input = input(">_ ")
+      if Combat_Input.lower() in Combat_Choices:
+          if Combat_Input.lower() == "stab":
+            print("What will you stab the laden with?")
+            Stab_Choice = input(">_")
+            if Stab_Choice.capitalize() in Weapons and Stab_Choice.capitalize() in Inventory:
+              if Stab_Choice.capitalize() == "Dagger":
+                Damage_Done = random.randrange(1,10)
+              if Stab_Choice.capitalize() == "Knife":
+                Damage_Done = random.randrange(5,20)
+              if Stab_Choice.capitalize() == "Sword":
+                Damage_Done = random.randrange(15,50)
+              print("You have dealt", Damage_Done,"damage to the Laden")
+              H -= Damage_Done
+            else:
+              print("You can't attack with that.")
+        
+      if H > 0 and Health > 0:
+        
+        Hit_Probability = random.choice(Chance_Of_Success)
+        Ability_To_Use = random.choice(Laden_Abilities)
+        if Hit_Probability == "HIT":
+          print("The Laden has used it's", Ability_To_Use, "ability")
+          if Ability_To_Use == "Scratch":
+            print("Lashing forward, the Laden hits you with it's attack")
+            Attack_Damage = random.randrange(1,5) * S
+            Health -= Attack_Damage
+          if Ability_To_Use == "Claw":
+            print("The Laden has wrapped around you and clawed your clothes.")
+            Attack_Damage = random.randrange(10,15) * S
+            Health -= Attack_Damage
+          if Ability_To_Use == "Heal" and Heal_Ability_Use < 2:
+            print("The Laden morphs into a smaller version of itself, it gains health and strength")
+            H += 20
+            S += 10
+            Heal_Ability_Use += 1
+        else:
+          print("The Laden attempted to use it's", Ability_To_Use, "ability, but you're faster.") 
+      else:
+        print("The Laden has died")
+        Xp_Gained += random.randrange(1, 25)
+        Knowledge.append("Laden")
+        User.Player_XP(Name, Xp_Gained)
+        ShopKeep.UpdateCurrency(random.randrange(5, 60))
+  def Laden_Encounter(self,H,S,Health,Name):
+    Laden_Main = Laden_Beast(H, S, Health, Name)
+    global Knowledge
+    if "Laden" not in Knowledge:
+      print("The dark and shiny scales of this creature amaze you")
+    else:
+      print("You've seen a Laden before. This should be easy. ")
+    Laden_Main.Attacks(25, 3, Health, Name)
+########################################################################
+     
+
+class NPC:
+  
+  global Level
+  global CurrentArea
+
+  User = Player()
+  Inventory = User.GetInventory()
+
+  def __init__(self,QV):
+    self.Quest_Val = QV
+  
+
+
+
+
+  def House_NPC(Health, Name, Quest_Val, Quest_item):
+    global C
+    
+    User = Player()
+    Rewards = [75,125,175]
+    
+    Quest_Item = Quest_item
+    if Quest_Val == 0:
+      print("Hi honey, you look tired are you feeling okay?")
+      print("Anyway, i need some", Quest_Item, "can you get it for me?")
+      Quest_Val += 1
+    else:
+      if Quest_Item in Inventory:
+        print("Thanks for collecting", Quest_Item, "for me!")
+        New_Item = random.choice(Rewards)
+        if New_Item == 75:
+          XP_Gained = 50
+          C += 250
+          print("You have gained 75 credits")
+        if New_Item == 125:
+          XP_Gained = 100
+          C += 500
+          print("You have gained 125 credits")
+        if New_Item == 175:
+          XP_Gained = 500
+          C += 1500
+          print("You have gained 175 credits")
+        
+        User.Player_XP(Name, XP_Gained)
+      else:
+        if Quest_Item not in Inventory:
+          print("You do not have the required item!")
+          print("You need", Quest_Item)
+
+  def Get_Quest_Item(Health, Name, QV):
+    Quest_Items = ["Fabric","Key","Knife"]
+    if QV == 0:
+      Quest_item = random.choice(Quest_Items)
+      QV += 1
+      NPC.House_NPC(Health, Name, QV, Quest_item)
+    else:
+      NPC.House_NPC(Health, Name, QV, Quest_item)
+
+  def Quest(Health, Name, Quested, Inventory):
+    print("Thanks for collecting", Quested,"for me")
+    Removal = Inventory.index(Quested)
+    Inventory.pop(Removal)
+    Game_Frame(Health, Name)
+  
+def Support_Command(Health, Name):
+    print("\nValid commands are:")
+    print("travel")
+    print("hunt")
+    print("shop")
+    print("search")
+    print("health")
+    print("view")
+    print("use")
+    print("map")
+    print("help")
+    print("quit\n")
+
+    Game_Frame(Health, Name)
+
+
+def ErrorHandling(ErrorCode, Name, Health):
+    if ErrorCode == 1:
+        print("\x1B[3m\nInvalid Name. ", "Detected", Name,
+              "\nName can't contain integers.\x1B[0m \n")
+    if ErrorCode == 2:
+        print("\x1B[3mPlease enter somewhere to search.\x1B[0m\n ")
+    if ErrorCode == 3:
+        print("\x1B[3mYou can't leave blank input. \x1B[0m \n")
+        Game_Frame(Health, Name)
+    if ErrorCode == 4:
+        print("\n\x1B[3mName cannot be blank. \n\x1B[0m")
+        DisplayMenu(Health)
+    if ErrorCode == 5:
+        print("\n\x1B[3mInvalid item to sell.\n\x1B[0m")
+    if ErrorCode == 6:
+        print("\n\x1B[3mCan't travel there\x1B[0m")
+        Game_Frame(Health, Name)
+    if ErrorCode == 7:
+        print("\n\x1B[3mYou can not use that\x1B[0m")
+        Game_Frame(Health, Name)
+    if ErrorCode == 8:
+        print("\n\x1B[3mCan't travel to that location\x1B[0m")
+        Game_Frame(Health, Name)
+    
+
+
+def Travel_Command(Health, Choice, Name):
+    global CurrentArea
+    global Area_Count
+
+    Inside_Region = ["Bathroom","Bedroom","Hallway","Kitchen","Blacksmith"]
+    Outside_Region = ["Outside","Road","Trail"]
+    Mountain_Region = ["Hillside","Cliffs","Path","|Peak|"]
+
+    Inside_Encounters = ["No"]
+    Outer_Encounters = ["Yes","No","No","No"]
+    Mountain_Encounters = ["Yes","Yes","Yes","No"]
+    ##########################
+    Bedroom_Dialogue = ["\n\x1B[3mAs you wander into your room, you notice the windows are open and the TV is on. Your mother has left a pile of clothes on your bed for you to put away.\x1B[0m","\n\x1B[3mMaking your way to your room, you take interest in the fact that you left your door open. You enter your bedroom and scramble to close the door. \x1B[0m"]
+    ##########################
+    Bathroom_Dialogue = ["\n\x1B[3mAs you approach teh bathroom, the lemony aroma hits you like a blanket.\x1B[0m"]
+    ##########################
+    Hallway_Dialogue = ["\n\x1B[3mIn the hallway, you see the shelf where you keep some books and where you used to keep trophies as a child. Ahhh... simpler times.\x1B[0m"]
+    ##########################
+    Kitchen_Dialogue = ["\n\x1B[3mAs you make your way to the kitchen, your mother stands at the oven, making pancakes. \x1B[0m"]
+    ##########################
+    if CurrentArea in Inside_Region:
+      Attack_Decision = random.choice(Inside_Encounters)
+    if CurrentArea in Outside_Region:
+      Attack_Decision = random.choice(Outer_Encounters)
+    if CurrentArea in Mountain_Region:
+      Attack_Decision = random.choice(Mountain_Encounters)
+    Travel = Choice.lower().split()
+    if Travel[0] == "travel":
+        if Travel[1] in Area[CurrentArea]:
+            if Attack_Decision == "Yes":
+                print("\x1B[3mYou travel", Travel[1].capitalize(),
+                      "And find a beast!\x1B[0m")
+                CurrentArea = Area[CurrentArea][Travel[1]]
+                Area_Count = 0
+                Map(Health, Choice, Name)
+                Beasty.Beast_Descriptions(10, 10, 10, Health, Name)
+                print("You have successfully travelled to", CurrentArea)
+            else:
+                CurrentArea = Area[CurrentArea][Travel[1]]
+                print("You have travelled", Travel[1])
+                if CurrentArea == "Bedroom":
+                  print(random.choice(Bedroom_Dialogue))
+                if CurrentArea == "Bathroom":
+                  print(random.choice(Bathroom_Dialogue))
+                if CurrentArea == "Hallway":
+                  print(random.choice(Hallway_Dialogue))
+                if CurrentArea == "Kitchen":
+                  print(random.choice(Kitchen_Dialogue))
+                Area_Count = 0
+                Map(Health, Choice, Name)
+        else:
+            ErrorHandling(8, Name, Health)
+
+
+def Health_Command(Health, Name):
+    print("\n\x1B[3mYour Health:\x1B[0m", Health, "\n")
+    Game_Frame(Health, Name)
+
+
+def Search_Command(Health, Choice, Name):
+    Area_Max = 3
+    global Area_Count
+    global CurrentArea
+    global Max_Inventory_Size
+    User = Player()
+    Inventory = User.GetInventory()
+    Instance = CurrentArea.lower()
+
+    House_Region = ["bedroom", "hallway", "kitchen", "bathroom"]
+    Outside_Region = ["outside", "road", "southern road"]
+    ###########################
+    House_Searches = ["drawers", "cupboards", "cabinets"]
+    Outside_Searches = ["bins", "ground"]
+    ###########################
+    House_Pools = ["Knife", "Fabric", "Potion"]
+    House_RPools = ["Dagger", "Key", "Backpack"]
+    ###########################
+    Outside_Pools = ["Stone", "String", "Change", "Potion"]
+    Outside_RPools = ["Dagger", "Sword", "Gold", "Gem"]
+    ###########################
+    House_C = [1, 2, 3, 4, 5, 6, 7]
+    House_R = [8, 9, 10]
+    ###########################
+    Outside_C = [1, 2, 3, 4, 5, 6, 7, 8]
+    Outside_R = [9, 10]
+    ###########################
+    if Choice == "search":
+        ErrorHandling(2, Name, Health)
+    if Choice != "search":
+        Search_Region = Choice.split()[1]
+        if Search_Region in House_Searches and Instance in House_Region:
+            if Area_Count < Area_Max:
+                Area_Count += 1
+                Item_Found = random.randrange(1, 10)
+                if Item_Found in House_C:
+                    New_Item = random.choice(House_Pools)
+                if Item_Found in House_R:
+                    New_Item = random.choice(House_RPools)
+                if len(Inventory) < Max_Inventory_Size:
+                    User.New_Inventory(Health, Name, New_Item)
+            else:
+                print("You can't search here anymore")
+                Game_Frame(Health, Name)
+            if len(Inventory) == Max_Inventory_Size:
+                print("Can't carry more items. ")
+        if Search_Region in Outside_Searches and Instance in Outside_Region:
+            if Area_Count < Area_Max:
+                Area_Count += 1
+                Item_Found = random.randrange(1, 10)
+                if Item_Found in Outside_C:
+                    New_Item = random.choice(Outside_Pools)
+                if Item_Found in Outside_R:
+                    New_Item = random.choice(Outside_RPools)
+            else:
+                print("You can't search here anymore")
+                Game_Frame(Health, Name)
+            if len(Inventory) == Max_Inventory_Size:
+                print("Can't carry more items. ")
+
+
+#############################
+
+
+def Combat_Command(Health, Name):
+    User = Player()
+    Inventory = User.GetInventory()
+    Combat_Time = Beast(10, 10, 10, Health, Name)
+
+    print("\n\x1B[3mYour Health:\x1B[0m", Health, "\n")
+    Choice = input("\n>_ ")
+    Combat_Recogniser = Choice.split()[0]
+
+    if "attack" in Combat_Recogniser:
+        Combat_Time.Beast_Definition(10, 10, 10, Health, Name)
+        Game_Frame(Health, Name)
+
+    if "heal" in Combat_Recogniser:
+        Potion_Gain = 15
+        if "Potion" in Inventory:
+            print("\n You have successfully used a potion and gained",
+                  Potion_Gain, "health points")
+            Health += 15
+            Remove_Object = Inventory.index("Potion")
+            Inventory.pop(Remove_Object)
+
+
+def View_Command(Name, Health, Choice):
+    User = Player()
+    if len(User.GetInventory()) == 0:
+        print("\x1B[3mIn your inventory you find nothing\x1B[0m \n")
+    if len(User.GetInventory()) != 0:
+        print("\x1B[3mIn your Inventory you find", User.GetInventory(),
+              "\x1B[0m \n")
+
+
+def Use_Command(Name, Health, Choice):
+    Use_Commands = ["use"]
+    Valid_Items = ["potion", "dagger"]
+    User = Player()
+    Inventory = User.GetInventory()
+    if len(Inventory) < 1:
+        print("\nYou have nothing to use in your inventory\n")
+        Game_Frame(Health, Name)
+    print("\nYou have", Inventory)
+    print("\nWhat do you want to use? ")
+    Choice = input(">_ ").lower()
+    if not Choice:
+        ErrorHandling(3, Name, Health)
+
+    Middle_Recogniser = Choice.split(' ')
+
+    if len(Middle_Recogniser) > 1:
+        if Middle_Recogniser[1] not in Valid_Items:
+            while Middle_Recogniser[1] not in Valid_Items:
+                Middle_Index = Middle_Recogniser.index(Middle_Recogniser[1])
+                Middle_Recogniser.pop(Middle_Index)
+            Use_Recogniser = Middle_Recogniser[0]
+            Item_Recogniser = Middle_Recogniser[1]
+    else:
+        Use_Recogniser = Middle_Recogniser[0]
+
+    if Use_Recogniser.capitalize() in Inventory:
+        Potion_Gain = 15
+        Health += Potion_Gain
+        print("\nYou have successfully used a potion and gained", Potion_Gain,
+              "health points. \n")
+        Remove_Object = Inventory.index(Use_Recogniser.capitalize())
+        Inventory.pop(Remove_Object)
+    if Use_Recogniser in Use_Commands:
+        if Item_Recogniser.capitalize() in Inventory:
+
+            if Item_Recogniser == "potion":
+                Potion_Gain = 15
+                Health += Potion_Gain
+                print("\nYou have successfully used a potion and gained",
+                      Potion_Gain, "health points. \n")
+                Remove_Object = Inventory.index(Item_Recogniser.capitalize())
+                Inventory.pop(Remove_Object)
+    else:
+        ErrorHandling(7, Health, Name)
+    Game_Frame(Health, Name)
+
+
+def Game_Over():
+    User = Player()
+    Score = User.GetXP()
+    print("You have been defeated in battle. ")
+    print("~~~~~~~~~~~~~~~")
+    print("\x1B[3mGAME OVER\x1B[0m")
+    print("\x1B[3mYour score: ", Score, "\x1B[0m")
+    print("~~~~~~~~~~~~~~~")
+    quit()
+
+
+def Level_Command(Health, Name):
+    global Level
+    global XP
+    print("Your xp is", XP)
+    print("Your level is", Level)
+
+
+def Drop_Command(Health, Name, Choice):
+    if Choice == "drop":
+        ErrorHandling(10, Health, Name)
+    if Choice != "drop":
+        print("lmfao")
+    User = Player()
+    Inventory = User.GetInventory()
+    print("You currently have", Inventory)
+    print("What do you wish to drop? ")
+    Choice = input("\n>_ ")
+    if Choice.capitalize() in Inventory:
+        Remove_Object = Inventory.index(Choice.capitalize())
+        Inventory.pop(Remove_Object)
+        print("You have sucessfully dropped", Choice.capitalize())
+
+
+def Shop_Command(Health, Name):
+    print("\nWelcome to my shop. ")
+    print("1. Buy")
+    print("2. Sell")
+    print("3. Leave")
+    Choice = input("\n>_ ").lower()
+    Items_For_Sale = []
+    if Choice == "1" or Choice == "buy":
+        Shop.Shop_Buy(Health, Name, Items_For_Sale)
+    if Choice == "2" or Choice == "sell":
+        Shop.Shop_Sell(Health, Name)
+    if Choice == "3" or Choice == "leave":
+        Game_Frame(Health, Name)
+
+
+def Craft_Command(Health, Name):
+    x = 0
+    c = 0
+    global Max_Inventory_Size
+    global Level
+    User = Player()
+    Inventory = User.GetInventory()
+    
+    Temp_Inv = []
+    Level_1 = ["Knife","Potion"]
+    Level_10 = ["Backpack","Sword","Gem"]
+    Level_20 = ["Key"]
+    Knife_Req = ["Iron","Dagger"]
+    Potion_Req = ["Bottle","Substance"]
+    Checking_State = []
+    Valid_Crafts = []
+    for ele in Inventory:
+      
+      Temp_Inv.append(Inventory[x])
+      x += 1
+    
+    if Level < 10:
+      Valid_Crafts.append("Knife")
+      Valid_Crafts.append("Potion")
+    
+    if Level >= 10:
+      Valid_Crafts.append("Backpack")
+      Valid_Crafts.append("Sword")
+     
+   
+    print("You are level", Level, "You can craft", Valid_Crafts)
+    print("What do you want to craft? ")
+    Choice = input(">_")
+    if Choice.capitalize() in Level_1:
+      if Choice.capitalize() == "Knife":
+        print("To craft this, you need", Knife_Req)
+        for ele in Knife_Req:
+          if Knife_Req[c] in Inventory:
+            Checked_Item = Temp_Inv.index(Knife_Req[c])
+            Checking_State.append(Checked_Item)
+            Temp_Inv.pop(Checked_Item)
+            c += 1
+          else:
+            print("You are missing some materials")
+        print("You have everything you need!")
+        print("You inventory:", Inventory)
+        print("Do you want to craft this item? (Y/N)")
+        Craft_Choice = input(">_ ")
+        if Craft_Choice == "Y" or Craft_Choice == "y":
+          c = 0
+          for ele in Knife_Req:
+            Removal_Object = Temp_Inv.index(Knife_Req[c])
+            Inventory.pop(Removal_Object)
+          User.New_Inventory(Health, Name, "Knife")
+
+      if Choice.capitalize() == "Potion":
+        print("To craft this you need", Potion_Req)
+        for ele in Potion_Req:
+          if Potion_Req[c] in Inventory:
+            Checked_Item = Temp_Inv.index(Potion_Req[c])
+            Checking_State.append(Checked_Item)
+            Temp_Inv.pop(Checked_Item)
+            c += 1
+        else:
+          print("You are missing some materials")
+
+
+
+def Commands_Handler(Choice, Health, Name):
+    global data
+    global CurrentArea
+    User = Player()
+    global C
+    Inventory = User.GetInventory()
+    Valid_Commands = [
+        "travel", "search", "help", "shop", "map", "health", "level",
+        "credits", "quit", "drop", "view","craft","talk", "use"
+    ]
+    Valid_Items = ["Potion", "Dagger", "Loose Change", "Feather"]
+    Command_Recogniser = Choice.split()[0].lower()
+
+    if Command_Recogniser not in Valid_Commands:
+        print("Invalid Command")
+    if "view" in Command_Recogniser:
+        View_Command(Name, Health, Choice)
+    if "use" in Command_Recogniser:
+        if "potion" in Choice and "Potion" in Inventory:
+            Remove_Object = Inventory.index("Potion")
+            print("You have successfully used a potion and gained 15 health")
+            Inventory.pop(Remove_Object)
+            Health += 15
+            print("\x1B[3mYour health:", Health, "\x1B[0m")
+            Game_Frame(Health, Name)
+        else:
+            Use_Command(Name, Health, Choice)
+    if "drop" in Command_Recogniser:  Drop_Command(Health, Name, Choice)
+    if "talk" in Command_Recogniser and CurrentArea == "Kitchen":  NPC.Get_Quest_Item(Health, Name)
+    if "map" in Command_Recogniser: Map(Health, Choice, Name)
+    if "travel" in Command_Recogniser: Travel_Command(Health, Choice, Name)
+    if "search" in Command_Recogniser: Search_Command(Health, Choice, Name)
+    if "help" in Command_Recogniser: Support_Command(Health, Name)
+    if "credits" in Command_Recogniser: print("You have", C, "Credits!")
+    if "health" in Command_Recogniser: Health_Command(Health, Name)
+    if "quit" in Command_Recogniser: SaveGame(Name, Health)
+        
+    if "level" in Command_Recogniser: Level_Command(Health, Name)
+    if "shop" in Command_Recogniser: Shop_Command(Health, Name)
+    if "craft" in Command_Recogniser and CurrentArea == "Blacksmith": Craft_Command(Health, Name)
+
+
+def Acentia_End(Name):
+    print("It was a valiant effort, but you have died.\n ")
+    DisplayMenu()
+
+
+def Game_Frame(Health, Name):
+
+    Choice = ""
+    while Health > 0:
+        if Health < 0:
+            Acentia_End(Name)
+        
+        Choice = input(">_ ")
+        if not Choice:
+            ErrorHandling(3, Name, Health)
+        Auto_Save(Name, Health)
+        Commands_Handler(Choice, Health, Name)
+
+
+def Play_Acentia(H, Name):
+    global CurrentArea
+    
+    House_Region = ["Bedroom","Bathroom","Kitchen"]
+
+    print("\nWelcome", Name, "to the majestical valley of Acentia.")
+    CurrentArea = random.choice(House_Region)
+    if CurrentArea == "Bedroom":
+      print(
+        "\n\x1B[3mYou awake in your bed, the window is slightly cracked open and your door is closed. The lgihts are off but your watch says the time is 09:00\x1B[0m \n"
+      )
+      print("You are in the Bedroom!")
+    if CurrentArea == "Bathroom":
+      print("\n\x1B[3m Its early morning and you're jsut finishing up washing your face. The light is slightly flickering and the walls are a little gross. \n\x1B[0m")
+      print("You are in the Bathroom!")
+    if CurrentArea == "Kitchen":
+      print("\n\x1B[3mYou are finishing off a delicious Bacon sandwich as you grab your pouch and head to the kitchen. \n\x1B[0m")
+      print("You are in the Kitchen!")
+
+    print("\n\x1B[3mYour Health:\x1B[0m", H)
+    print("Your level:", Level)
+    Game_Frame(100, Name)
+
+
+def Patches():
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("New in V0.1.93")
+    print(".Added a blacksmith location, only accessible by travelling there")
+    print(".Added a crafting mechanism at the blacksmith location")
+    print(".Added several crafting recpies for items within the game")
+    print(".Added alot more items to the game")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("New in V0.1.79")
+    print(".Added a dynamic search system for the map system")
+    print(".Added the following items: Fabric, Knife, Gold, Key")
+    print(".Removed the following items: String, Stone")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("New in V0.1.57")
+    print(".Added a map system")
+    print(
+        ".Added the basic layout of a map to rectify the limits of the world of Acentia"
+    )
+    print(".fixed a bug where users could sell items they never had")
+    print(".fixed a bug where it was possible to gain infinite health")
+    print(".Added a backpack item to increase the maximum inventory size by 5")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("New in V0.1.21")
+    print(".Fixed Travel command bugs")
+    print(".Changed several commands for easier use")
+    print(".More quality of life fixes")
+    print(".Added a maximum amount of times you can search a specific area")
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print()
+    print("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print("New in V0.1.05")
+    print(".Shop command for selling or buying items using credits")
+    print(".Added credits, gained from selling items or defeating beasts")
+    print(".Added more combat commands and functionality for combat")
+    print(".Added an inventory max size of 6")
+
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+
+
+def Menu():
+    print("\n~~~~~~~~~~~~~~~")
+    print("1. Play Acentia")
+    print("2. Load Game")
+    print("3. Change Name")
+    print("4. Changelogs")
+    print("5. Quit Acentia")
+    print("~~~~~~~~~~~~~~~\n")
+
+
+def Menu_Junction(Name, Health):
+
+    Choice = ""
+    while Choice != "5":
+        Menu()
+        Choice = input("\n>_ ")
+        if not Choice:
+            ErrorHandling(3)
+
+        if Choice == "1":
+            Play_Acentia(100, Name)
+        if Choice == "2":
+          LoadGame(Name, Health)
+        if Choice == "3":
+            print("Please enter your NEW name. \n")
+            Name = input(">_ ")
+            if not Name:
+                ErrorHandling(3, Health, Name)
+            while Name.isdigit() == True:
+                ErrorHandling(1, Name, Health)
+                print("Please enter your NEW name. \n")
+                Name = input(">_ ")
+                if not Name:
+                    ErrorHandling(3, Health, Name)
+        if Choice == "4":
+            Patches()
+
+
+def DisplayMenu(Health):
+
+    Choice = ""
+    print("\u2058\x1B[3m\033[1mSKELETON BRANCH\x1B[0m\033[0m\u2058")
+    print("Welcome to Acentia. v0.2\n")
+    print("Please Enter your name. ")
+    Name = input("\n>_ ")
+    if Name.isalpha():
+      if not Name:
+          ErrorHandling(4, Name, Health)
+      while Name.isdigit() == True:
+          ErrorHandling(1, Name, Health)
+          print("Please Enter your name. ")
+          Name = input("\n>_ ")
+          if not Name:
+              ErrorHandling(4, Name, Health)
+              print("Please Enter your name. ")
+      while Choice != "5":
+          Menu()
+          Choice = input("\n>_ ")
+
+          if Choice == "1":
+              Play_Acentia(100, Name)
+          if Choice == "2":
+            LoadGame(Name, Health)
+          if Choice == "3":
+              print("Please enter your NEW name. \n")
+              Name = input(">_ ")
+              while Name.isdigit() == True:
+                  ErrorHandling(1, Name, Health)
+                  print("Please enter your NEW name. \n")
+                  Name = input(">_ ")
+          if Choice == "4":
+              Patches()
+
+
+DisplayMenu(100)
+#
